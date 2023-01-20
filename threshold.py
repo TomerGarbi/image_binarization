@@ -46,26 +46,43 @@ def otsu(img):
 
 
 
-def get_window(shape, r, c, W):
+def get_window(img, r, c, W, mode="move"):
+    rows, cols = img.shape
     left = c - W // 2 - 1
     right = c + W // 2
     ceil = r - W // 2 - 1
     bottom = r + W // 2
+
     # adjust window to valid indices
-    if left < 0:
-        right += abs(left)
-        left = 0
-    elif right >= shape[0]:
-        left -= right + 1 -shape[0]
-        right = shape[0] - 1
+    if mode == "move":
+        if left < 0:
+            right += abs(left)
+            left = 0
+        elif right >= cols:
+            left -= right + 1 - cols
+            right = cols - 1
+
+        if ceil < 0:
+            bottom += abs(ceil)
+            ceil = 0
+        elif bottom >= rows:
+            ceil -= bottom + 1 - rows
+            bottom = rows - 1
+        return img[ceil: bottom, left:right]
     
-    if ceil < 0:
-        bottom += abs(ceil)
-        ceil = 0
-    elif bottom >= shape[1]:
-        ceil -= bottom + 1 - shape[1]
-        bottom = shape[1] - 1
-    return (left, right, bottom, ceil)
+    elif mode == "pad":
+        if left < 0:
+            left = 0
+        elif right >= img.shape[0]:
+            right = img.shape[0] - 1
+        if ceil < 0:
+            ceil = 0
+        elif bottom >= img.shape[1]:
+            bottom = img.shape[1] - 1
+        window= img[ceil: bottom, left:right]
+        pad_window = window
+        return pad_window
+        
 
 
 def window_mean(window):
@@ -81,70 +98,54 @@ def mean_std(img, W):
     S = np.zeros(img.shape)
     for r in range(rows):
         for c in range(cols):
-            (left, right, bottom, ceil) = get_window((rows, cols), r, c, W)
-            pixel_window = img[ceil:bottom, left:right] 
+            print(r * c / (rows * cols))
+            pixel_window = get_window(img, r, c, W)    
             M[r][c] = window_mean(pixel_window)
             S[r][c] = np.sqrt(window_var(pixel_window, M[r][c]))
     return M, S
 
 
 def niBlack(img, k=-0.2, W=15):
-    M, S = mean_std(img[0], W)
+    M, S = mean_std(img, W)
     T = M + k * S
     bw_img = apply_threshold(img[0], T)
     cv2.imwrite(f"./result_images/niBlack/{img[1]}", bw_img)
     return bw_img
 
 def sauvola(img, k=0.5, W=15, R=128):
-    rows, cols = img[0].shape
+    M, S = mean_std(img, W)
+    rows, cols = img.shape
     bw_img = np.zeros((rows, cols))
     for r in range(rows):
+        print(f"{r / rows}%")
         for c in range(cols):
-            (left, right, bottom, ceil) = get_window((rows, cols), r, c, W)
-            pixel_window = img[0][ceil:bottom, left:right] 
-            pixel_mu = window_mean(pixel_window)
-            pixel_std = np.sqrt(window_var(pixel_window, pixel_mu))
-            T = pixel_mu*(1+ k*(pixel_std/R - 1))
-            bw_img[r][c] = 0 if img[0][r][c] <= T else 255
-    cv2.imwrite(f"./result_images/sauvola/{img[1]}", bw_img)
+            T = M[r][c] * (1 + k * (S[r][c]/R - 1))
+            bw_img[r][c] = 0 if img[r][c] <= T else 255
     return bw_img
 
 
 def wolf(img, k=0.5, W=15, R=128):
-    M, S = mean_std(img[0], W)
+    M, S = mean_std(img, W)
     max_S = np.max(S)
     min_M = np.min(M)
-    rows, cols = img[0].shape
+    rows, cols = img.shape
     bw_img = np.zeros((rows, cols))
     for r in range(rows):
         print(f"{r / rows}%")
         for c in range(cols):
             T = M[r][c] - k * (1 - (S[r][c]/max_S)) * (M[r][c] - min_M)
-            bw_img[r][c] = 0 if img[0][r][c] <= T else 255
-    cv2.imwrite(f"./result_images/Wolf/{img[1]}", bw_img)
+            bw_img[r][c] = 0 if img[r][c] <= T else 255
     return bw_img
-    
+
+
+
+def salt_and_pepper(img):
+    pre_process.add_noise(img)
+
 
 
 if __name__ == "__main__":
     mode = 'w'
-    lenna = pre_process.grayscale(cv2.imread("./images/Lenna.png"), mode=mode)
-    print("1")
-    newspaper = pre_process.grayscale(cv2.imread("./images/old_newspaper.jpg"), mode=mode)
-    print("2")
-    stop_sign = pre_process.grayscale(cv2.imread("./images/stop_sign.jpg"), mode=mode)
-    print('3')
-    sudoku1 = pre_process.grayscale(cv2.imread("./images/sudoku.jpg"), mode=mode)
-    print('4')
-    sudoku2 = pre_process.grayscale(cv2.imread("./images/sudoku2.jpg"), mode=mode)
-    gray_images = [(lenna, "lenna.png"), (newspaper, "newspaper.jpg"), (stop_sign, "stop_sign.jpg"),
-                 (sudoku1, "sudoku1.jpg"), (sudoku2, "sudoku2.jpg")]
-    for img in gray_images:
-        print(img[1])
-        # otsu(img)
-        # niBlack(img)
-        # sauvola(img)
-        wolf(img)
-
-
-
+    lenna = pre_process.grayscale(cv2.imread("./images/old_recipe.jpg"), mode=mode)
+    A = sauvola(lenna , W=9)
+    cv2.imwrite("test.jpg", A)

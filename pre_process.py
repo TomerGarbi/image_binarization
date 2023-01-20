@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import time
+from scipy.signal import wiener, deconvolve
+from scipy.ndimage import median_filter
+import threshold
 
 def gray_avg(pixel):
     return sum(pixel) // 3
@@ -44,13 +47,37 @@ def histogram(img: np.ndarray):
     return hist
 
 
+
+def add_gaussian_noise(img):
+    row,col,ch= img.shape
+    mean = 0
+    var = 30
+    gauss = np.random.normal(mean,var,(row,col,ch))
+    gauss = gauss.reshape(row,col,ch)
+    gauss = np.round(gauss)
+    print(gauss)
+    noisy = img + gauss
+    return noisy
+
+
+def add_noise(img):
+    rows, cols = img.shape
+    number_of_pixels = np.random.randint(300, rows * cols // 10)
+    for i in range(number_of_pixels):
+        y_coord = np.random.randint(0, rows - 1)
+        x_coord = np.random.randint(0, cols - 1)
+        img[y_coord][x_coord] = 255
+     
+    number_of_pixels = np.random.randint(300 , rows * cols // 10)
+    for i in range(number_of_pixels):
+        y_coord = np.random.randint(0, rows - 1)
+        x_coord = np.random.randint(0, cols - 1)
+        img[y_coord][x_coord] = 0      
+    return img
+
 if __name__ == "__main__":
     start_time = time.time()
-    lenna = cv2.imread("./images/old_newspaper.jpg")
-    lenna2 = cv2.imread("./images/Lenna.png")
-    g = grayscale(lenna)
-    cv2.imwrite("ppp.png", g)
-    print("running time: ", time.time() - start_time)
-    cv2.imshow("original", lenna)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+
+    print(sapper.shape)
+    median_res = cv2.medianBlur(sapper, 3)
+    
